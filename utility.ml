@@ -28,3 +28,9 @@ let size7 = Bit_size 7
 let fetch_bits (Bit_number high) (Bit_size length) word =
     let mask = lnot (-1 lsl length) in
     (word lsr (high - length + 1)) land mask
+
+let is_in_range (Byte_address address) size =
+    0 <= address && address < size
+
+let is_out_of_range address size =
+    not (is_in_range address size)

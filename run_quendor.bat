@@ -2,6 +2,7 @@
 @del *.cmo
 ocamlc -g -c type.ml
 ocamlc -g -c utility.ml
-ocaml type.cmo utility.cmo quendor.ml
+ocamlc -g -c immutable_bytes.ml
+ocaml type.cmo utility.cmo immutable_bytes.cmo quendor.ml
 @del *.cmi
 @del *.cmo
