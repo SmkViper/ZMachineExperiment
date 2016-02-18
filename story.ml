@@ -54,3 +54,7 @@ let load filename =
             let dynamic = String.sub file 0 dynamic_length in
             let static = String.sub file dynamic_length (len - dynamic_length) in
             make dynamic static
+
+let abbreviations_table_base story =
+    let abbreviations_table_base_offset = Word_address 24 in
+    Abbreviation_table_base (read_word story abbreviations_table_base_offset)

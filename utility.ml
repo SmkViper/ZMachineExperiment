@@ -54,6 +54,14 @@ let address_of_high_byte (Word_address address) =
 let address_of_low_byte (Word_address address) =
     Byte_address (address + 1)
 
+let word_size = 2
+
+let inc_word_addr_by (Word_address address) offset =
+    Word_address (address + offset * word_size)
+
+let inc_word_addr address =
+    inc_word_addr_by address 1
+
 let get_file filename =
     let channel = open_in_bin filename in
     let length = in_channel_length channel in
