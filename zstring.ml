@@ -1,6 +1,20 @@
 open Utility
 open Type
 
+type string_state =
+    | Alphabet of int
+    | Abbrev of abbreviation_number
+    | Leading
+    | Trailing of int
+
+let alphabet_table = [|
+    [| " "; "?"; "?"; "?"; "?"; "?"; "a"; "b"; "c"; "d"; "e"; "f"; "g"; "h"; "i"; "j";
+       "k"; "l"; "m"; "n"; "o"; "p"; "q"; "r"; "s"; "t"; "u"; "v"; "w"; "x"; "y"; "z" |];
+    [| " "; "?"; "?"; "?"; "?"; "?"; "A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J";
+       "K"; "L"; "M"; "N"; "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"; "W"; "X"; "Y"; "Z" |];
+    [| " "; "?"; "?"; "?"; "?"; "?"; "?"; "\n"; "0"; "1"; "2"; "3"; "4"; "5"; "6"; "7";
+       "8"; "9"; "."; ","; "!"; "?"; "_"; "#"; "'"; "\""; "/"; "\\"; "-"; ":"; "("; ")" |] |]
+
 let abbreviation_table_length = 96
 
 (* A "word address" is only used in the abbreviation table, and is always
@@ -21,10 +35,6 @@ let abbreviation_zstring story (Abbreviation n) =
         let abbr_addr = inc_word_addr_by base n in
         let word_addr = Word_zstring (Story.read_word story abbr_addr) in
         decode_word_address word_addr
-
-let alphabet_table = [|
-    "_"; "?"; "?"; "?"; "?"; "?"; "a"; "b"; "c"; "d"; "e"; "f"; "g"; "h"; "i"; "j";
-    "k"; "l"; "m"; "n"; "o"; "p"; "q"; "r"; "s"; "t"; "u"; "v"; "w"; "x"; "y"; "z" |]
 
 let display_bytes story (Zstring addr) =
     let rec aux current acc =
