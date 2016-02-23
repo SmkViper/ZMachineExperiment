@@ -7,6 +7,14 @@ type string_state =
     | Leading
     | Trailing of int
 
+let abbrev0 = Abbrev (Abbreviation 0)
+let abbrev32 = Abbrev (Abbreviation 32)
+let abbrev64 = Abbrev (Abbreviation 64)
+
+let alphabet0 = Alphabet 0
+let alphabet1 = Alphabet 1
+let alphabet2 = Alphabet 2
+
 let alphabet_table = [|
     [| " "; "?"; "?"; "?"; "?"; "?"; "a"; "b"; "c"; "d"; "e"; "f"; "g"; "h"; "i"; "j";
        "k"; "l"; "m"; "n"; "o"; "p"; "q"; "r"; "s"; "t"; "u"; "v"; "w"; "x"; "y"; "z" |];
@@ -51,3 +59,39 @@ let display_bytes story (Zstring addr) =
         if is_end = 1 then acc
         else aux (inc_word_addr current) acc in
     aux (Word_address addr) ""
+
+(* Note: only processes version 3 strings *)
+
+(* zstrings encode three characters into two-byte words.
+
+The high bit is the end-of-string marker, followed by three
+five-bit zchars.
+
+The meaning of the next zchar(s) depends on the current.
+
+If the current zchar is 1, 2 or 3 then the next is an offset
+into the abbreviation table; fetch the string indicated there.
+
+If the current zchar is 4 or 5 then the next is an offset into the
+uppercase or punctuation alphabets, except if the current is 5
+and the next is 6. In that case the two zchars following are a single
+10-bit character. *)
+
+let process_zchar (Zchar zchar) state =
+    match (zchar, state) with
+    | (1, Alphabet _) -> ("", abbrev0)
+    | (2, Alphabet _) -> ("", abbrev32)
+    | (3, Alphabet _) -> ("", abbrev64)
+    | (4, Alphabet _) -> ("", alphabet1)
+    | (5, Alphabet _) -> ("", alphabet2)
+    | (6, Alphabet 2) -> ("", Leading)
+    | (_, Alphabet a) -> (alphabet_table.(a).(zchar), alphabet0)
+    | (_, Abbrev Abbreviation a) ->
+        let abbrv = Abbreviation (a + zchar) in
+        let addr = abbreviation_zstring story abbrev in
+        let str = read story addr in
+        (str, alphabet0)
+    | (_, Leading) -> ("", (Trailing zchar))
+    | (_, Trailing high) ->
+        let s = string_of_char (Char.chr (high * 32 + zchar)) in
+        (s, alphabet0) in
