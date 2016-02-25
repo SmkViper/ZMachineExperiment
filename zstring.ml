@@ -44,6 +44,8 @@ let abbreviation_zstring story (Abbreviation n) =
         let word_addr = Word_zstring (Story.read_word story abbr_addr) in
         decode_word_address word_addr
 
+(* A debugging method for looking at memory broken up into the
+1 / 5 / 5 / 5 bit chunks used by zstrings. *)
 let display_bytes story (Zstring addr) =
     let rec aux current acc =
         let word = Story.read_word story current in
@@ -51,10 +53,7 @@ let display_bytes story (Zstring addr) =
         let zchar1 = fetch_bits bit14 size5 word in
         let zchar2 = fetch_bits bit9 size5 word in
         let zchar3 = fetch_bits bit4 size5 word in
-        let s = Printf.sprintf "%02x %s %02x %s %02x %s "
-            zchar1 alphabet_table.(zchar1)
-            zchar2 alphabet_table.(zchar2)
-            zchar3 alphabet_table.(zchar3) in
+        let s = Printf.sprintf "%02x %02x %02x " zchar1 zchar2 zchar3 in
         let acc = acc ^ s in
         if is_end = 1 then acc
         else aux (inc_word_addr current) acc in
@@ -77,21 +76,39 @@ uppercase or punctuation alphabets, except if the current is 5
 and the next is 6. In that case the two zchars following are a single
 10-bit character. *)
 
-let process_zchar (Zchar zchar) state =
-    match (zchar, state) with
-    | (1, Alphabet _) -> ("", abbrev0)
-    | (2, Alphabet _) -> ("", abbrev32)
-    | (3, Alphabet _) -> ("", abbrev64)
-    | (4, Alphabet _) -> ("", alphabet1)
-    | (5, Alphabet _) -> ("", alphabet2)
-    | (6, Alphabet 2) -> ("", Leading)
-    | (_, Alphabet a) -> (alphabet_table.(a).(zchar), alphabet0)
-    | (_, Abbrev Abbreviation a) ->
-        let abbrv = Abbreviation (a + zchar) in
-        let addr = abbreviation_zstring story abbrev in
-        let str = read story addr in
-        (str, alphabet0)
-    | (_, Leading) -> ("", (Trailing zchar))
-    | (_, Trailing high) ->
-        let s = string_of_char (Char.chr (high * 32 + zchar)) in
-        (s, alphabet0) in
+let rec read story (Zstring address) =
+
+    let process_zchar (Zchar zchar) state =
+        match (zchar, state) with
+        | (1, Alphabet _) -> ("", abbrev0)
+        | (2, Alphabet _) -> ("", abbrev32)
+        | (3, Alphabet _) -> ("", abbrev64)
+        | (4, Alphabet _) -> ("", alphabet1)
+        | (5, Alphabet _) -> ("", alphabet2)
+        | (6, Alphabet 2) -> ("", Leading)
+        | (_, Alphabet a) -> (alphabet_table.(a).(zchar), alphabet0)
+        | (_, Abbrev Abbreviation a) ->
+            let abbrv = Abbreviation (a + zchar) in
+            let addr = abbreviation_zstring story abbrv in
+            let str = read story addr in
+            (str, alphabet0)
+        | (_, Leading) -> ("", (Trailing zchar))
+        | (_, Trailing high) ->
+            let s = string_of_char (Char.chr (high * 32 + zchar)) in
+            (s, alphabet0) in
+
+    let rec aux acc state1 current_address =
+        let zchar_bit_size = size5 in
+        let word = Story.read_word story current_address in
+        let is_end = fetch_bit bit15 word in
+        let zchar1 = Zchar (fetch_bits bit14 zchar_bit_size word) in
+        let zchar2 = Zchar (fetch_bits bit9 zchar_bit_size word) in
+        let zchar3 = Zchar (fetch_bits bit4 zchar_bit_size word) in
+        let (text1, state2) = process_zchar zchar1 state1 in
+        let (text2, state3) = process_zchar zchar2 state2 in
+        let (text3, state_next) = process_zchar zchar3 state3 in
+        let new_acc = acc ^ text1 ^ text2 ^ text3 in
+        if is_end then new_acc
+        else aux new_acc state_next (inc_word_addr current_address) in
+    
+    aux "" alphabet0 (Word_address address)

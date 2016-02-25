@@ -29,6 +29,9 @@ let fetch_bits (Bit_number high) (Bit_size length) word =
     let mask = lnot (-1 lsl length) in
     (word lsr (high - length + 1)) land mask
 
+let fetch_bit (Bit_number n) word =
+    (word land (1 lsl n)) lsr n = 1
+
 let is_in_range (Byte_address address) size =
     0 <= address && address < size
 
@@ -68,3 +71,6 @@ let get_file filename =
     let file = really_input_string channel length in
     close_in channel;
     file
+
+let string_of_char c =
+    String.make 1 c
