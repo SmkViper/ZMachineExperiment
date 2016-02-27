@@ -58,3 +58,7 @@ let load filename =
 let abbreviations_table_base story =
     let abbreviations_table_base_offset = Word_address 24 in
     Abbreviation_table_base (read_word story abbreviations_table_base_offset)
+
+let dictionary_base story =
+    let dictionary_base_offset = Word_address 8 in
+    Dictionary_base (read_word story dictionary_base_offset)

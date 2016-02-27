@@ -8,3 +8,7 @@ type abbrev_table_base = Abbreviation_table_base of int
 type word_zstring_address = Word_zstring of int
 type zstring_address = Zstring of int
 type zchar = Zchar of int
+type dictionary_base = Dictionary_base of int
+type dictionary_table_base = Dictionary_table_base of int
+type dictionary_address = Dictionary_address of int
+type dictionary_number = Dictionary of int
