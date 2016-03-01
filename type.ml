@@ -12,3 +12,6 @@ type dictionary_base = Dictionary_base of int
 type dictionary_table_base = Dictionary_table_base of int
 type dictionary_address = Dictionary_address of int
 type dictionary_number = Dictionary of int
+
+type version =
+    | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8
