@@ -39,7 +39,7 @@ let write_word story address value =
 let header_size = 64
 
 let version_offset = Byte_address 0
-let version_story =
+let version story =
     match read_byte story version_offset with
     | 1 -> V1
     | 2 -> V2
@@ -81,3 +81,7 @@ let abbreviations_table_base story =
 let dictionary_base story =
     let dictionary_base_offset = Word_address 8 in
     Dictionary_base (read_word story dictionary_base_offset)
+
+let object_table_base story =
+    let object_table_base_offset = Word_address 10 in
+    Object_base (read_word story object_table_base_offset)
