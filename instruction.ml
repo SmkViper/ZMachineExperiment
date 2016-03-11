@@ -19,6 +19,35 @@ type operand_type =
     | Variable_operand
     | Omitted
 
+(* The tables which follow are maps from the opcode identification number
+   to the opcode type; the exact order matters. *)
+
+let one_operand_bytecodes = [|
+    OP1_128; OP1_129; OP1_130; OP1_131; OP1_132; OP1_133; OP1_134; OP1_135;
+    OP1_136; OP1_137; OP1_138; OP1_139; OP1_140; OP1_141; OP1_142; OP1_143  |]
+
+let zero_operand_bytecodes = [|
+    OP0_176; OP0_177; OP0_178; OP0_179; OP0_180; OP0_181; OP0_182; OP0_183;
+    OP0_184; OP0_185; OP0_186; OP0_187; OP0_188; OP0_189; OP0_190; OP0_191  |]
+
+let two_operand_bytecodes =[|
+    ILLEGAL; OP2_1;  OP2_2;  OP2_3;  OP2_4;  OP2_5;   OP2_6;   OP2_7;
+    OP2_8;   OP2_9;  OP2_10; OP2_11; OP2_12; OP2_13;  OP2_14;  OP2_15;
+    OP2_16;  OP2_17; OP2_18; OP2_19; OP2_20; OP2_21;  OP2_22;  OP2_23;
+    OP2_24;  OP2_25; OP2_26; OP2_27; OP2_28; ILLEGAL; ILLEGAL; ILLEGAL |]
+
+let var_operand_bytecodes = [|
+    VAR_224; VAR_225; VAR_226; VAR_227; VAR_228; VAR_229; VAR_230; VAR_231;
+    VAR_232; VAR_233; VAR_234; VAR_235; VAR_236; VAR_237; VAR_238; VAR_239;
+    VAR_240; VAR_241; VAR_242; VAR_243; VAR_244; VAR_245; VAR_246; VAR_247;
+    VAR_248; VAR_249; VAR_250; VAR_251; VAR_252; VAR_253; VAR_254; VAR_255 |]
+
+let ext_bytecodes = [|
+    EXT_0;   EXT_1;   EXT_2;   EXT_3;   EXT_4;   EXT_5;   EXT_6;   EXT_7;
+    EXT_8;   EXT_9;   EXT_10;  EXT_11;  EXT_12;  EXT_13;  EXT_14;  ILLEGAL;
+    EXT_16;  EXT_17;  EXT_18;  EXT_19;  EXT_20;  EXT_21;  EXT_22;  EXT_23;
+    EXT_24;  EXT_25;  EXT_26;  EXT_27;  EXT_28;  EXT_29;  ILLEGAL; ILLEGAL |]
+
 (* Takes the address of an instruction and produces the instruction *)
 let decode story (Instruction address) =
     (* Spec 4.3:
@@ -50,6 +79,47 @@ let decode story (Instruction address) =
         | Long_form -> OP2
         | Variable_form -> if fetch_bits bit5 b then VAR else OP2
         | Extended_form -> VAR in
+    
+    (* Spec:
+    * In short form, ... the opcode number is given in the bottom 4 bits.
+    * In long form, ... the opcode number is given in the bottom 5 bits.
+    * In variable form, ... the opcode number is given in the bottom 5 bits.
+    * In extended form, ... the opcode number is given in a second opcode byte. *)
+    
+    (* Now what the spec does not say here clearly is: we have just read 4, 5 or
+       8 bits, but we need to figure out which of 100+ opcodes we're talking
+       about. The location of the bits depends on the form, but the meaning of
+       the bits depends on the operand count. In fact the operand count is far
+       more relevant here. It took me some time to puzzle out this section of
+       the spec. The spec could more clearly say:
+       
+    * In extended form the EXT opcode number is given in the following byte. Otherwise:
+    * If the operand count is 0OP then the 0OP opcode number is given in the lower 4
+      bits.
+    * If the operand count is 1OP then the 1OP opcode number is given in the lower 4
+      bits.
+    * If the operand count is 2OP then the 2OP opcode number is given in the lower 5
+      bits.
+    * If the operand count is VAR then the VAR opcode number is given in the lower 5
+      bits.
+    *)
+    
+    let decode_opcode address form op_count =
+        let b = read_byte address in
+        match (form, op_count) with
+        | (Extended_form, _) ->
+            let maximum_extended = 29 in
+            let ext = read_byte (inc_byte_addr address) in
+            if ext > maximum_extended then ILLEGAL else ext_bytecodes.(ext)
+        | (_, OP0) -> zero_operand_bytecodes.(fetch_bits bit3 size4 b)
+        | (_, OP1) -> one_operand_bytecodes.(fetch_bits bit3 size4 b)
+        | (_, OP2) -> two_operand_bytecodes.(fetch_bits bit4 size5 b)
+        | (_, VAR) -> var_operand_bytecodes.(fetch_bits bit4 size5 b) in
+    
+    let get_opcode_length form =
+        match form with
+        | Extended_form -> 2
+        | _ -> 1 in
     
     (* Spec:
     There are four 'types' of operand. These are often specified by a
