@@ -18,9 +18,21 @@ type object_tree_base = Object_tree_base of int
 type object_number = Object of int
 type object_address = Object_address of int
 type property_header_address = Property_header of int
+type local_variable = Local of int
+type global_variable = Global of int
 
 type version =
     | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8
+
+type variable_location =
+    | Stack
+    | Local_variable of local_variable
+    | Global_variable of global_variable
+
+type operand =
+    | Large of int
+    | Small of int
+    | Variable of variable_location
 
 type bytecode =
               | OP2_1   | OP2_2   | OP2_3   | OP2_4   | OP2_5   | OP2_6   | OP2_7

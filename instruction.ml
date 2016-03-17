@@ -13,6 +13,18 @@ type operand_count =
     | OP2
     | VAR
 
+let decode_variable n =
+    let maximum_local = 15 in
+    if n = 0 then Stack
+    else if n <= maximum_local then Local_variable (Local n)
+    else Global_variable (Global n)
+
+let encode_variable variable =
+    match variable with
+    | Stack -> 0
+    | Local_variable Local n -> n
+    | Global_variable Global n -> n
+
 type operand_type =
     | Large_operand
     | Small_operand
@@ -201,3 +213,34 @@ let decode story (Instruction address) =
             | (Variable_form, VAR_250) -> 2
             | (Variable_form, _) -> 1
             | _ -> 0 in
+
+    (* The operand types are large, small or variable, being 2, 1 and 1 bytes
+       respectively. We take the list of operand types and produce a list of
+       operands. *)
+    
+    (* This method is not tail recursive but the maximum number of operands
+       is eight, so we don't care. *)
+    let rec decode_operands operand_address operand_types =
+        match operand_types with
+        | [] -> []
+        | Large_operand :: remaining_types ->
+            let w = read_word (byte_addr_to_word_addr operand_address) in
+            let tail = decode_operands (inc_byte_addr_by operand_address word_size) remaining_types in
+            (Large w) :: tail
+        | Small_operand :: remaining_types ->
+            let b = read_byte operand_address in
+            let tail = decode_operands (inc_byte_addr operand_address) remaining_types in
+            (Small b) :: tail
+        | Variable_operand :: remaining_types ->
+            let b = read_byte operand_address in
+            let v = decode_variable b in
+            let tail = decode_operands (inc_byte_addr operand_address) remaining_types in
+            (Variable v) :: tail
+        | Omitted :: _ ->
+            failwith "omitted operand type passed to decode operands" in
+
+        let rec get_operand_length operand_types =
+            match operand_types with
+            | [] -> 0
+            | Large_operand :: remaining_types -> word_size + (get_operand_length remaining_types)
+            | _ :: remaining_types -> 1 + (get_operand_length remaining_types)
