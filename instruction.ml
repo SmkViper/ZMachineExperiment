@@ -60,6 +60,22 @@ let ext_bytecodes = [|
     EXT_16;  EXT_17;  EXT_18;  EXT_19;  EXT_20;  EXT_21;  EXT_22;  EXT_23;
     EXT_24;  EXT_25;  EXT_26;  EXT_27;  EXT_28;  EXT_29;  ILLEGAL; ILLEGAL |]
 
+let has_store opcode ver =
+    match opcode with
+    | OP1_143 -> Story.v4_or_lower ver (* call_1n in v5, logical not in v1-4 *)
+    | OP0_181 -> Story.v4_or_higher ver (* save branches in v3, stores in v4 *)
+    | OP0_182 -> Story.v4_or_higher ver (* restore branches in v3, stores in v4*)
+    | OP0_185 -> Story.v4_or_higher ver (* pop in v4, catch in v5 *)
+    | VAR_233 -> ver = V6
+    | VAR_228 -> Story.v5_or_higher ver
+    | OP2_8   | OP2_9   | OP2_15  | OP2_16  | OP2_17  | OP2_18  | OP2_19 
+    | OP2_20  | OP2_21  | OP2_22  | OP2_23  | OP2_24  | OP2_25 
+    | OP1_129 | OP1_130 | OP1_131 | OP1_132 | OP1_136 | OP1_142 
+    | VAR_224 | VAR_231 | VAR_236 | VAR_246 | VAR_247 | VAR_248 
+    | EXT_0   | EXT_1   | EXT_2   | EXT_3   | EXT_4   | EXT_9 
+    | EXT_10  | EXT_19  | EXT_29 -> true 
+    | _ -> false 
+
 (* Takes the address of an instruction and produces the instruction *)
 let decode story (Instruction address) =
     (* Spec 4.3:
@@ -244,3 +260,24 @@ let decode story (Instruction address) =
             | [] -> 0
             | Large_operand :: remaining_types -> word_size + (get_operand_length remaining_types)
             | _ :: remaining_types -> 1 + (get_operand_length remaining_types)
+
+    (* Spec 4.6:
+    "Store" instructions return a value: e.g., mul multiplies its two
+    operands together. Such instructions must be followed by a single byte
+    giving the variable number of where to put the result. *)
+    
+    (* This is straightforward but I note something odd; the wording above
+      implies that the instruction has ended after the operands, and that
+      the store (and hence also branch and text) *follow* the instruction.
+      I cannot get behind this. The store, branch and text are all part of
+      an instruction. *)
+    
+    let decode_store store_address opcode ver =
+        if has_store opcode ver then
+            let store_byte = read_byte store_address in
+            Some (decode_variable store_byte)
+        else
+            None in
+    
+    let get_store_length opcode ver =
+        if has_store opcode ver then 1 else 0 in
