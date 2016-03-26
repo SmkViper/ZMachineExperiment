@@ -44,21 +44,6 @@ let abbreviation_zstring story (Abbreviation n) =
         let word_addr = Word_zstring (Story.read_word story abbr_addr) in
         decode_word_address word_addr
 
-(* A debugging method for looking at memory broken up into the
-1 / 5 / 5 / 5 bit chunks used by zstrings. *)
-let display_bytes story (Zstring addr) =
-    let rec aux current acc =
-        let word = Story.read_word story current in
-        let is_end = fetch_bits bit15 size1 word in
-        let zchar1 = fetch_bits bit14 size5 word in
-        let zchar2 = fetch_bits bit9 size5 word in
-        let zchar3 = fetch_bits bit4 size5 word in
-        let s = Printf.sprintf "%02x %02x %02x " zchar1 zchar2 zchar3 in
-        let acc = acc ^ s in
-        if is_end = 1 then acc
-        else aux (inc_word_addr current) acc in
-    aux (Word_address addr) ""
-
 (* Note: only processes version 3 strings *)
 
 (* zstrings encode three characters into two-byte words.
@@ -112,3 +97,25 @@ let rec read story (Zstring address) =
         else aux new_acc state_next (inc_word_addr current_address) in
     
     aux "" alphabet0 (Word_address address)
+
+(* A debugging method for looking at memory broken up into the
+1 / 5 / 5 / 5 bit chunks used by zstrings. *)
+let display_bytes story (Zstring addr) =
+    let rec aux current acc =
+        let word = Story.read_word story current in
+        let is_end = fetch_bits bit15 size1 word in
+        let zchar1 = fetch_bits bit14 size5 word in
+        let zchar2 = fetch_bits bit9 size5 word in
+        let zchar3 = fetch_bits bit4 size5 word in
+        let s = Printf.sprintf "%02x %02x %02x " zchar1 zchar2 zchar3 in
+        let acc = acc ^ s in
+        if is_end = 1 then acc
+        else aux (inc_word_addr current) acc in
+    aux (Word_address addr) ""
+
+(* gives the length in bytes of the encoded zstring, not the decoded string *)
+let length story (Zstring address) =
+    let rec aux len current =
+        if fetch_bit bit15 (Story.read_word story current) then len + 2
+        else aux (len + 2) (inc_word_addr current) in
+    aux 0 (Word_address address)

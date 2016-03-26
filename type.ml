@@ -20,6 +20,7 @@ type object_address = Object_address of int
 type property_header_address = Property_header of int
 type local_variable = Local of int
 type global_variable = Global of int
+type instruction_address = Instruction of int
 
 type version =
     | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8
