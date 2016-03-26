@@ -60,6 +60,17 @@ let ext_bytecodes = [|
     EXT_16;  EXT_17;  EXT_18;  EXT_19;  EXT_20;  EXT_21;  EXT_22;  EXT_23;
     EXT_24;  EXT_25;  EXT_26;  EXT_27;  EXT_28;  EXT_29;  ILLEGAL; ILLEGAL |]
 
+type t =
+{
+    opcode : bytecode;
+    address : instruction_address;
+    length : int;
+    operands : operand list;
+    store : variable_location option;
+    branch : (bool * branch_address) option;
+    text : string option;
+}
+
 let has_store opcode ver =
     match opcode with
     | OP1_143 -> Story.v4_or_lower ver (* call_1n in v5, logical not in v1-4 *)
@@ -84,6 +95,11 @@ let has_branch opcode ver =
     | OP1_128 | OP1_129 | OP1_130 | OP0_189 | OP0_191
     | VAR_247 | VAR_255
     | EXT_6   | EXT_14 | EXT_24  | EXT_27 -> true
+    | _ -> false
+
+let has_text opcode =
+    match opcode with
+    | OP0_178 | OP0_179 -> true
     | _ -> false
 
 (* Takes the address of an instruction and produces the instruction *)
@@ -337,3 +353,43 @@ let decode story (Instruction address) =
             let b = read_byte branch_code_address in
             if fetch_bit bit6 b then 1 else 2
         else 0 in
+    
+    (* Spec:
+       Two opcodes, print and print_ret, are followed by a text string. *)
+    
+    let decode_text text_address opcode =
+        if has_text opcode then
+            Some (read_zstring text_address)
+        else
+            None in
+    
+    let get_text_length text_address opcode =
+        if has_text opcode then
+            zstring_length text_address
+        else
+            0 in
+    
+    let form = decode_form addr in
+    let op_count = decode_op_count addr form in
+    let opcode = decode_opcode addr form op_count in
+    let opcode_length = get_opcode_length form in
+    let operand_types = decode_operand_types addr form op_count opcode in
+    let type_length = get_type_length form opcode in
+    let operand_address = inc_byte_addr_by addr (opcode_length + type_length) in
+    let operands = decode_operands operand_address operand_types in
+    let operand_length = get_operand_length operand_types in
+    let store_address = inc_byte_addr_by operand_address operand_length in
+    let store = decode_store store_address opcode ver in
+    let store_length = get_store_length opcode ver in
+    let branch_code_address = inc_byte_addr_by store_address store_length in
+    let branch = decode_branch branch_code_address opcode ver in
+    let branch_length = get_branch_length branch_code_address opcode ver in
+    let (Byte_address ba) = branch_code_address in
+    let text_address = Zstring (ba + branch_length) in
+    let text = decode_text text_address opcode in
+    let text_length = get_text_length text_address opcode in
+    let length =
+        opcode_length + type_length + operand_length + store_length +
+        branch_length + text_length in
+    let address = Instruction address in
+    { opcode; address; length; operands; store; branch; text }
