@@ -56,6 +56,21 @@ let v3_or_lower v =
     | V1 | V2 | V3 -> true
     | V4 | V5 | V6 | V7 | V8 -> false
 
+let v4_or_lower v =
+    match v with
+    | V1 | V2 | V3 | V4 -> true
+    | V5 | V6 | V7 | V8 -> false
+
+let v4_or_higher v =
+    match v with
+    | V1 | V2 | V3 -> false
+    | V4 | V5 | V6 | V7 | V8 -> true
+
+let v5_or_higher v =
+    match v with
+    | V1 | V2 | V3 | V4 -> false
+    | V5 | V6 | V7 | V8 -> true
+
 let static_memory_base_offset = Word_address 14
 
 let load filename =
