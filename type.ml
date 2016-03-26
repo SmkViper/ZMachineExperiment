@@ -34,6 +34,11 @@ type operand =
     | Small of int
     | Variable of variable_location
 
+type branch_address =
+    | Return_true
+    | Return_false
+    | Branch_address of instruction_address
+
 type bytecode =
               | OP2_1   | OP2_2   | OP2_3   | OP2_4   | OP2_5   | OP2_6   | OP2_7
     | OP2_8   | OP2_9   | OP2_10  | OP2_11  | OP2_12  | OP2_13  | OP2_14  | OP2_15

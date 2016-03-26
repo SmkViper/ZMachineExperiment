@@ -68,13 +68,23 @@ let has_store opcode ver =
     | OP0_185 -> Story.v4_or_higher ver (* pop in v4, catch in v5 *)
     | VAR_233 -> ver = V6
     | VAR_228 -> Story.v5_or_higher ver
-    | OP2_8   | OP2_9   | OP2_15  | OP2_16  | OP2_17  | OP2_18  | OP2_19 
-    | OP2_20  | OP2_21  | OP2_22  | OP2_23  | OP2_24  | OP2_25 
-    | OP1_129 | OP1_130 | OP1_131 | OP1_132 | OP1_136 | OP1_142 
-    | VAR_224 | VAR_231 | VAR_236 | VAR_246 | VAR_247 | VAR_248 
-    | EXT_0   | EXT_1   | EXT_2   | EXT_3   | EXT_4   | EXT_9 
-    | EXT_10  | EXT_19  | EXT_29 -> true 
-    | _ -> false 
+    | OP2_8   | OP2_9   | OP2_15  | OP2_16  | OP2_17  | OP2_18  | OP2_19
+    | OP2_20  | OP2_21  | OP2_22  | OP2_23  | OP2_24  | OP2_25
+    | OP1_129 | OP1_130 | OP1_131 | OP1_132 | OP1_136 | OP1_142
+    | VAR_224 | VAR_231 | VAR_236 | VAR_246 | VAR_247 | VAR_248
+    | EXT_0   | EXT_1   | EXT_2   | EXT_3   | EXT_4   | EXT_9
+    | EXT_10  | EXT_19  | EXT_29 -> true
+    | _ -> false
+
+let has_branch opcode ver = 
+    match opcode with
+    | OP0_181 -> Story.v3_or_lower ver (* save branches in v3, stores in v4 *)
+    | OP0_182 -> Story.v3_or_lower ver (* restore branches in v3, stores in v4 *)
+    | OP2_1   | OP2_2   | OP2_3   | OP2_4   | OP2_5   | OP2_6   | OP2_7   | OP2_10
+    | OP1_128 | OP1_129 | OP1_130 | OP0_189 | OP0_191
+    | VAR_247 | VAR_255
+    | EXT_6   | EXT_14 | EXT_24  | EXT_27 -> true
+    | _ -> false
 
 (* Takes the address of an instruction and produces the instruction *)
 let decode story (Instruction address) =
@@ -281,3 +291,49 @@ let decode story (Instruction address) =
     
     let get_store_length opcode ver =
         if has_store opcode ver then 1 else 0 in
+    
+    (* Spec 4.7
+    * Instructions which test a condition are called "branch" instructions.
+    * The branch information is stored in one or two bytes, indicating what to
+      do with the result of the test.
+    * If bit 7 of the first byte is 0, a branch occurs when the condition was
+      false; if 1, then branch is on true.
+    * If bit 6 is set, then the branch occupies 1 byte only, and the "offset"
+      is in the range 0 to 63, given in the bottom 6 bits.
+    * If bit 6 is clear, then the offset is a signed 14-bit number given in
+      bits 0 to 5 of the first byte followed by all 8 of the second.
+    * An offset of 0 means "return false from the current routine", and 1 means
+      "return true from the current routine".
+    * Otherwise, a branch moves execution to the instruction at address
+      (Address after branch data) + Offset - 2. *)
+    
+    let decode_branch branch_code_address opcode ver =
+        if has_branch opcode ver then
+            let high = read_byte branch_code_address in
+            let sense = fetch_bit bit7 high in
+            let bottom6 = fetch_bits bit5 size6 high in
+            let offset =
+                if fetch_bit bit6 high then
+                    bottom6
+                else
+                    let low = read_byte (inc_byte_addr branch_code_address) in
+                    let unsigned = 256 * bottom6 + low in
+                    if unsigned < 8192 then unsigned else unsigned - 16384 in
+            let branch =
+                match offset with
+                | 0 -> (sense, Return_false)
+                | 1 -> (sense, Return_true)
+                | _ ->
+                    let branch_length = if fetch_bit bit6 high then 1 else 2 in
+                    let (Byte_address address_after) = inc_byte_addr_by branch_code_address branch_length in
+                    let branch_target = Instruction (address_after + offset - 2) in
+                    (sense, Branch_address branch_target) in
+            Some branch
+        else
+            None in
+    
+    let get_branch_length branch_code_address opcode ver =
+        if has_branch opcode ver then
+            let b = read_byte branch_code_address in
+            if fetch_bit bit6 b then 1 else 2
+        else 0 in
