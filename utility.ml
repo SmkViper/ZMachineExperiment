@@ -88,3 +88,6 @@ let accumulate_strings to_string items =
     let folder text item =
         text ^ (to_string item) in
     List.fold_left folder "" items
+
+let byte_addr_to_word_addr (Byte_address address) =
+    Word_address address
