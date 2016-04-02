@@ -569,7 +569,7 @@ let display_variable variable =
     match variable with
     | Stack -> "sp"
     | Local_variable Local local -> Printf.sprintf "local%d" (local - 1)
-    | Global_variable Global global -> Printf.sprintf "g%d" (global - 16)
+    | Global_variable Global global -> Printf.sprintf "g%02x" (global - 16)
 
 let display instr ver =
     let display_operands () =

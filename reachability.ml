@@ -28,3 +28,20 @@ let jump_target_instruction instr =
         let offset = signed_word offset in
         [Instruction.jump_address instr offset]
     | _ -> []
+
+let all_reachable_addresses_in_routine story instr_address =
+    let immediately_reachable_addresses address =
+        let instr = Instruction.decode story address in
+        let following = following_instruction instr in
+        let branch = branch_target_instruction instr in
+        let jump = jump_target_instruction instr in
+        following @ branch @ jump in
+    reflexive_closure instr_address immediately_reachable_addresses
+
+let display_reachable_instructions story address =
+    let reachable = all_reachable_addresses_in_routine story address in
+    let sorted = List.sort compare reachable in
+    let to_string addr =
+        let instr = Instruction.decode story addr in
+        Instruction.display instr (Story.version story) in
+    accumulate_strings to_string sorted

@@ -92,6 +92,13 @@ let accumulate_strings to_string items =
 let byte_addr_to_word_addr (Byte_address address) =
     Word_address address
 
+let unsigned_word word =
+    ((word mod 65536) + 65536) mod 65536
+
+let signed_word word =
+    let canonical = unsigned_word word in
+    if canonical > 32767 then canonical - 65536 else canonical
+
 (* Helper method that takes an item and a function that produces related items.
 The result is the transitive closure of the relation. *)
 
