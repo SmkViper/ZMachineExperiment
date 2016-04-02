@@ -71,6 +71,27 @@ type t =
     text : string option;
 }
 
+let opcode instruction =
+    instruction.opcode
+
+let address instruction =
+    instruction.address
+
+let length instruction =
+    instruction.length
+
+let operands instruction =
+    instruction.operands
+
+let store instruction =
+    instruction.store
+
+let branch instruction =
+    instruction.branch
+
+let text instruction =
+    instruction.text
+
 let has_store opcode ver =
     match opcode with
     | OP1_143 -> Story.v4_or_lower ver (* call_1n in v5, logical not in v1-4 *)
@@ -101,6 +122,23 @@ let has_text opcode =
     match opcode with
     | OP0_178 | OP0_179 -> true
     | _ -> false
+
+let continues_to_following opcode =
+    match opcode with
+    | OP2_28 (* throw *)
+    | OP1_139 (* ret *)
+    | OP1_140 (* jump *)
+    | OP0_176 (* rtrue *)
+    | OP0_177 (* rfalse *)
+    | OP0_179 (* print_ret *)
+    | OP0_183 (* restart *)
+    | OP0_184 (* ret_popped *)
+    | OP0_186 (* quit *) -> false
+    | _ -> true
+
+let jump_address instruction offset =
+    let (Instruction addr) = instruction.address in
+    Instruction (addr + instruction.length + offset - 2)
 
 (* Takes the address of an instruction and produces the instruction *)
 let decode story (Instruction address) =
@@ -531,7 +569,7 @@ let display_variable variable =
     match variable with
     | Stack -> "sp"
     | Local_variable Local local -> Printf.sprintf "local%d" (local - 1)
-    | Global_variable Global global -> Printf.sprintf "g%d" (global - 16)
+    | Global_variable Global global -> Printf.sprintf "g%02x" (global - 16)
 
 let display instr ver =
     let display_operands () =

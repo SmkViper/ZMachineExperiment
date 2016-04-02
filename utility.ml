@@ -91,3 +91,42 @@ let accumulate_strings to_string items =
 
 let byte_addr_to_word_addr (Byte_address address) =
     Word_address address
+
+let unsigned_word word =
+    ((word mod 65536) + 65536) mod 65536
+
+let signed_word word =
+    let canonical = unsigned_word word in
+    if canonical > 32767 then canonical - 65536 else canonical
+
+(* Helper method that takes an item and a function that produces related items.
+The result is the transitive closure of the relation. *)
+
+(* TODO: This is not very efficient because of the call to List.mem in there.
+A solution involving an immutable set would be more performant for large
+closures. *)
+
+let transitive_closure_many items relation =
+    let rec merge related set stack =
+        match related with
+        | [] -> (set, stack)
+        | head :: tail ->
+            if List.mem head set then merge tail set stack
+            else merge tail (head :: set) (head :: stack) in
+    let rec aux set stack =
+        match stack with
+        | [] -> set
+        | head :: tail ->
+            let (new_set, new_stack) = merge (relation head) set tail in
+            aux new_set new_stack in
+    aux [] items
+
+let transitive_closure item relation =
+    transitive_closure_many [item] relation
+
+let reflexive_closure_many items relation =
+    let t = transitive_closure_many items relation in
+    List.fold_left (fun s i -> if List.mem i s then s else i :: s) t items
+
+let reflexive_closure item relation =
+    reflexive_closure_many [item] relation
