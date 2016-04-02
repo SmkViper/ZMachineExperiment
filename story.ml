@@ -100,3 +100,18 @@ let dictionary_base story =
 let object_table_base story =
     let object_table_base_offset = Word_address 10 in
     Object_base (read_word story object_table_base_offset)
+
+let routine_offset story =
+    let routine_offset_offset = Word_address 24 in
+    8 * (read_word story routine_offset_offset)
+
+let decode_routine_packed_address story (Packed_routine packed) =
+    match version story with
+    | V1
+    | V2
+    | V3 -> Routine (packed * 2)
+    | V4
+    | V5 -> Routine (packed * 4)
+    | V6
+    | V7 -> Routine (packed * 4 + (routine_offset story))
+    | V8 -> Routine (packed * 8)
