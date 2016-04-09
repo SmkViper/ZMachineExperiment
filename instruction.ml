@@ -605,7 +605,12 @@ let display instr story =
                 | Small small -> Printf.sprintf "%02x " small
                 | Variable variable -> (display_variable variable) ^ " " in
             accumulate_strings to_string operands in
-        match call_address instr story with
+    match (instr.opcode, instr.operands) with
+    | (OP1_140, [Large offset]) ->
+        let offset = signed_word offset in
+        let (Instruction addr) = jump_address instr offset in
+        Printf.sprintf "%04x " addr
+    | _ -> match call_address instr story with
         | Some (Routine addr) ->
             (Printf.sprintf "%04x " addr) ^ display_remainder (List.tl instr.operands)
         | _ -> display_remainder instr.operands in
