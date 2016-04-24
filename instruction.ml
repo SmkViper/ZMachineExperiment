@@ -92,6 +92,10 @@ let branch instruction =
 let text instruction =
     instruction.text
 
+let following instruction =
+    let (Instruction addr) = instruction.address in
+    (Instruction (addr + instruction.length))
+
 let has_store opcode ver =
     match opcode with
     | OP1_143 -> Story.v4_or_lower ver (* call_1n in v5, logical not in v1-4 *)

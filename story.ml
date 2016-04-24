@@ -101,6 +101,10 @@ let object_table_base story =
     let object_table_base_offset = Word_address 10 in
     Object_base (read_word story object_table_base_offset)
 
+let global_variables_table_base story =
+    let global_variables_table_base_offset = Word_address 12 in
+    Global_table_base (read_word story global_variables_table_base_offset)
+
 let routine_offset story =
     let routine_offset_offset = Word_address 24 in
     8 * (read_word story routine_offset_offset)
@@ -115,3 +119,14 @@ let decode_routine_packed_address story (Packed_routine packed) =
     | V6
     | V7 -> Routine (packed * 4 + (routine_offset story))
     | V8 -> Routine (packed * 8)
+
+(* Bytes 6 and 7 are the initial pc for the main routine. In version 6 (only)
+this is the (packed!) address of a routine, so the *following* byte is the first
+instruction. In all other versions the main routine is indicated just byte
+its first instruction. *)
+
+let initial_program_counter story =
+    let initial_program_counter_offset = Word_address 6 in
+    let pc = read_word story initial_program_counter_offset in
+    if (version story) = V6 then Instruction (pc * 4 + 1)
+    else Instruction pc

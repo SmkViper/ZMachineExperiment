@@ -11,8 +11,13 @@ ocamlc -g -c dictionary.ml
 ocamlc -g -c object.ml
 ocamlc -g -c instruction.ml
 ocamlc -g -c reachability.ml
+ocamlc -g -c globals.ml
+ocamlc -g -c evaluation_stack.ml
 ocamlc -g -c local_store.ml
-ocamlc -g -o quendor.exe type.cmo utility.cmo immutable_bytes.cmo story.cmo routine.cmo zstring.cmo dictionary.cmo object.cmo instruction.cmo reachability.cmo local_store.cmo quendor.ml
+ocamlc -g -c frame.ml
+ocamlc -g -c frameset.ml
+ocamlc -g -c interpreter.ml
+ocamlc -g -o quendor.exe type.cmo utility.cmo immutable_bytes.cmo story.cmo routine.cmo zstring.cmo dictionary.cmo object.cmo instruction.cmo reachability.cmo globals.cmo evaluation_stack.cmo local_store.cmo frame.cmo frameset.cmo interpreter.cmo quendor.ml
 ocamldebug quendor.exe
 @del *.cmi
 @del *.cmo

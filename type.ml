@@ -23,6 +23,7 @@ type global_variable = Global of int
 type instruction_address = Instruction of int
 type packed_routine_address = Packed_routine of int
 type routine_address = Routine of int
+type global_table_base = Global_table_base of int
 
 type version =
     | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8
