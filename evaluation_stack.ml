@@ -26,5 +26,5 @@ let push stack item =
 
 let display stack =
     let to_string item =
-        Printf.sprintf = " %04x" item in
+        Printf.sprintf " %04x" item in
     accumulate_strings to_string stack.items
