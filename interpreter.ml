@@ -138,6 +138,66 @@ let display interpreter =
     let instr = display_current_instruction interpreter in
     Printf.sprintf "\n---\n%s\n%s\n" frames instr
 
+(* Spec: 2OP:1 je a b ?label
+Jump if a is equal to any of the subsequent operands. (Thus @je a never
+jumps and @je a b jumps if a = b.) *)
+
+(* Note: Already we are off to a bad start; the revision to the spec says:
+
+je can take between 2 and 4 operands. je with just 1 operand is not permitted.
+
+Note that je is one of the rare "2OP" instructions that can take 3 or 4
+operands. *)
+
+let handle_je2 a b interpreter =
+    if a = b then 1 else 0
+
+let handle_je3 a b c interpreter =
+    if a = b || a = c then 1 else 0
+
+let handle_je4 a b c d interpreter =
+    if a = b || a = c || a = d then 1 else 0
+
+(* Spec: 2OP:2 jl a b ?(label)
+Jump if a < b using a signed 16-bit comparison. *)
+
+let handle_jl a b interpreter =
+    let a = signed_word a in
+    let b = signed_word b in
+    if a < b then 1 else 0
+
+(* Spec: 2OP:3 jg a b ?(label)
+Jump if a > b using a signed 16-bit comparison. *)
+
+let handle_jg a b interpreter =
+    let a = signed_word a in
+    let b = signed_word b in
+    if a > b then 1 else 0
+
+(* Spec: 1OP:128 jz a ?(label)
+Jump if a = 0. *)
+
+let handle_jz a interpreter =
+    if a = 0 then 1 else 0
+
+(* Spec 1OP:140 jump ?(label)
+Jump (unconditionally) to the given label. (This is not a branch instruction
+and the operand is a 2-byte signed offset to apply to the program counter.)
+It is legal for this to jump into a different routine (which should not
+change the routine call state), although it is considered bad practice to
+do so and the Txd disassembler is confused by it.
+
+Note: the revised specification clarifies:
+
+The destination of the jump opcode is
+Address after instruction + Offset - 2
+This is analogous to the calculation for branch offsets. *)
+
+let handle_jump offset interpreter instruction =
+    let offset = signed_word offset in
+    let target = Instruction.jump_address instruction offset in
+    set_program_counter interpreter target
+
 (* Spec: 2OP:20 add a b -> (result)
 Signed 16-bit addition. *)
 
@@ -174,6 +234,41 @@ let handle_mod a b interpreter =
     let a = signed_word a in
     let b = signed_word b in
     a mod b
+
+(* Spec: 2OP:15 loadw array word-index -> (result)
+Stores array-->word-index (i.e., the word at address array+2*word-index,
+which must lie in static or dynamic memory). *)
+
+let handle_loadw arr idx interpreter =
+    let arr = Word_address arr in
+    Story.read_word interpreter.story (inc_word_addr_by arr idx)
+
+(* Spec: 2OP:16 loadb array byte-index -> (result)
+Stores array->byte-index (i.e., the byte at address array+byte-index,
+which must lie in static or dynamic memory). *)
+
+let handle_loadb arr idx interpreter =
+    let arr = Byte_address arr in
+    Story.read_byte interpreter.story (inc_byte_addr_by arr idx)
+
+(* Spec: VAR:225 storew array wordindex value
+array->wordindex = value
+i.e. stores the given value in the word at address array + 2 * wordindex
+(which must lie in dynamic memory). *)
+
+let handle_storew arr ind value interpreter =
+    let arr = Word_address arr in
+    let addr = inc_word_addr_by arr ind in
+    { interpreter with story = Story.write_word interpreter.story addr value }
+
+(* Spec: VAR:226 storeb array byteindex value
+array->byteindex = value, i.e. stores the given value in the byte at
+address array+byteindex (which must lie in dynamic memory). *)
+
+let handle_storeb arr ind value interpreter =
+    let arr = Byte_address arr in
+    let addr = inc_byte_addr_by arr ind in
+    { interpreter with story = Story.write_byte interpreter.story addr value }
 
 (* This routine handles all call instructions:
 
@@ -218,14 +313,25 @@ let step_instruction interpreter =
     let (arguments, interpreter) = operands_to_arguments interpreter operands in
   (*let interpret_instruction = interpret_instruction interpreter instruction in*)
     let value = interpret_value_instruction interpreter instruction in
-  (*let effect = interpret_effect_instruction interpreter instruction in*)
+    let effect = interpret_effect_instruction interpreter instruction in
     let opcode = Instruction.opcode instruction in
     match (opcode, arguments) with
+    | (OP2_1, [a; b]) -> value (handle_je2 a b)
+    | (OP2_1, [a; b; c]) -> value (handle_je3 a b c)
+    | (OP2_1, [a; b; c; d]) -> value (handle_je4 a b c d)
+    | (OP2_2, [a; b]) -> value (handle_jl a b)
+    | (OP2_3, [a; b]) -> value (handle_jg a b)
+    | (OP2_15, [arr; idx]) -> value (handle_loadw arr idx)
+    | (OP2_16, [arr; idx]) -> value (handle_loadb arr idx)
     | (OP2_20, [a; b]) -> value (handle_add a b)
     | (OP2_21, [a; b]) -> value (handle_sub a b)
     | (OP2_22, [a; b]) -> value (handle_mul a b)
     | (OP2_23, [a; b]) -> value (handle_div a b)
     | (OP2_24, [a; b]) -> value (handle_mod a b)
+    | (OP1_128, [a]) -> value (handle_jz a)
     | (OP1_139, [result]) -> handle_ret result interpreter
+    | (OP1_140, [offset]) -> handle_jump offset interpreter instruction
     | (VAR_224, routine :: args) -> handle_call routine args interpreter instruction
+    | (VAR_225, [arr; ind; value]) -> effect (handle_storew arr ind value)
+    | (VAR_226, [arr; ind; value]) -> effect (handle_storeb arr ind value)
     | _ -> failwith (Printf.sprintf "TODO: %s " (Instruction.display instruction interpreter.story))
