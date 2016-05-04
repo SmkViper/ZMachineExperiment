@@ -18,6 +18,12 @@ let make story =
 let current_frame interpreter =
     Frameset.current_frame interpreter.frames
 
+let add_frame interpreter frame =
+    { interpreter with frames = Frameset.add_frame interpreter.frames frame }
+
+let remove_frame interpreter =
+    { interpreter with frames = Frameset.remove_frame interpreter.frames }
+
 let peek_stack interpreter =
     Frameset.peek_stack interpreter.frames
 
@@ -26,6 +32,12 @@ let pop_stack interpreter =
 
 let push_stack interpreter value =
     { interpreter with frames = Frameset.push_stack interpreter.frames value }
+
+let program_counter interpreter =
+    interpreter.program_counter
+
+let set_program_counter interpreter program_counter =
+    { interpreter with program_counter }
 
 let read_local interpreter local =
     Frameset.read_local interpreter.frames local
@@ -73,6 +85,48 @@ let interpret_store interpreter store result =
     | None -> interpreter
     | Some variable -> write_variable interpreter variable result
 
+let interpret_return interpreter value =
+    let frame = current_frame interpreter in
+    let next_pc = Frame.resume_at frame in
+    let store = Frame.store frame in
+    let pop_frame_interpreter = remove_frame interpreter in
+    let result_interpreter = set_program_counter pop_frame_interpreter next_pc in
+    interpret_store result_interpreter store value
+
+let interpret_branch interpreter instruction result =
+    let result = not (result = 0) in
+    let following = Instruction.following instruction in
+    match Instruction.branch instruction with
+    | None -> set_program_counter interpreter following
+    | Some (sense, Return_false) ->
+        if result = sense then interpret_return interpreter 0
+        else set_program_counter interpreter following
+    | Some (sense, Return_true) ->
+        if result = sense then interpret_return interpreter 1
+        else set_program_counter interpreter following
+    | Some (sense, Branch_address branch_target) ->
+        if result = sense then set_program_counter interpreter branch_target
+        else set_program_counter interpreter following
+
+let interpret_instruction interpreter instruction handler =
+    let (result, handler_interpreter) = handler interpreter in
+    let store = Instruction.store instruction in
+    let store_interpreter = interpret_store handler_interpreter store result in
+    interpret_branch store_interpreter instruction result
+
+let interpret_value_instruction interpreter instruction handler =
+    let result = handler interpreter in
+    let store = Instruction.store instruction in
+    let store_interpreter = interpret_store interpreter store result in
+    interpret_branch store_interpreter instruction result
+
+let interpret_effect_instruction interpreter instruction handler =
+    let handler_interpreter = handler interpreter in
+    let result = 0 in
+    let store = Instruction.store instruction in
+    let store_interpreter = interpret_store handler_interpreter store result in
+    interpret_branch store_interpreter instruction result
+
 let display_current_instruction interpreter =
     let address = interpreter.program_counter in
     let instruction = Instruction.decode interpreter.story address in
@@ -84,14 +138,42 @@ let display interpreter =
     let instr = display_current_instruction interpreter in
     Printf.sprintf "\n---\n%s\n%s\n" frames instr
 
-let add_frame interpreter frame =
-    { interpreter with frames = Frameset.add_frame interpreter.frames frame }
+(* Spec: 2OP:20 add a b -> (result)
+Signed 16-bit addition. *)
 
-let remove_frame interpreter =
-    { interpreter with frames = Frameset.remove_frame interpreter.frames }
+let handle_add a b interpreter =
+    a + b
 
-let set_program_counter interpreter program_counter =
-    { interpreter with program_counter }
+(* Spec: 2OP:21 sub a b -> (result)
+Signed 16-bit subtraction. *)
+
+let handle_sub a b interpreter =
+    a - b
+
+(* Spec: 2OP:22 mul a b -> (result)
+Signed 16-bit multiplication. *)
+
+let handle_mul a b interpreter =
+    a * b
+
+(* Spec: 2OP:23 div a b -> (result)
+Signed 16-bit division. Division by zero should halt
+the interpreter with a suitable error message. *)
+
+let handle_div a b interpreter =
+    let a = signed_word a in
+    let b = signed_word b in
+    a / b
+
+(* Spec: 2OP:24 mod a b -> (result)
+Remainder after signed 16-bit division. Division by
+zero should halt the interpreter with aa suitable
+error message. *)
+
+let handle_mod a b interpreter =
+    let a = signed_word a in
+    let b = signed_word b in
+    a mod b
 
 (* This routine handles all call instructions:
 
@@ -124,11 +206,26 @@ let handle_call routine_address arguments interpreter instruction =
         let pc = Routine.first_instruction interpreter.story routine_address in
         set_program_counter (add_frame interpreter frame) pc
 
+(* Spec: 10P:139 ret value
+Returns from the current routine with the value given *)
+
+let handle_ret result interpreter =
+    interpret_return interpreter result
+
 let step_instruction interpreter =
     let instruction = Instruction.decode interpreter.story interpreter.program_counter in
     let operands = Instruction.operands instruction in
     let (arguments, interpreter) = operands_to_arguments interpreter operands in
+  (*let interpret_instruction = interpret_instruction interpreter instruction in*)
+    let value = interpret_value_instruction interpreter instruction in
+  (*let effect = interpret_effect_instruction interpreter instruction in*)
     let opcode = Instruction.opcode instruction in
     match (opcode, arguments) with
+    | (OP2_20, [a; b]) -> value (handle_add a b)
+    | (OP2_21, [a; b]) -> value (handle_sub a b)
+    | (OP2_22, [a; b]) -> value (handle_mul a b)
+    | (OP2_23, [a; b]) -> value (handle_div a b)
+    | (OP2_24, [a; b]) -> value (handle_mod a b)
+    | (OP1_139, [result]) -> handle_ret result interpreter
     | (VAR_224, routine :: args) -> handle_call routine args interpreter instruction
     | _ -> failwith (Printf.sprintf "TODO: %s " (Instruction.display instruction interpreter.story))
