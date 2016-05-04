@@ -57,9 +57,21 @@ let read_variable interpreter variable =
     | Local_variable local -> (read_local interpreter local, interpreter)
     | Global_variable global -> (read_global interpreter global, interpreter)
 
+let read_variable_in_place interpreter variable =
+    match variable with
+    | Stack -> peek_stack interpreter
+    | Local_variable local -> read_local interpreter local
+    | Global_variable global -> read_global interpreter global
+
 let write_variable interpreter variable value =
     match variable with
     | Stack -> push_stack interpreter value
+    | Local_variable local -> write_local interpreter local value
+    | Global_variable global -> write_global interpreter global value
+
+let write_variable_in_place interpreter variable value =
+    match variable with
+    | Stack -> push_stack (pop_stack interpreter) value
     | Local_variable local -> write_local interpreter local value
     | Global_variable global -> write_global interpreter global value
 
