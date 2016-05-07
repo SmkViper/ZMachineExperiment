@@ -109,6 +109,10 @@ let routine_offset story =
     let routine_offset_offset = Word_address 24 in
     8 * (read_word story routine_offset_offset)
 
+let string_offset story =
+    let string_offset_offset = Word_address 42 in
+    8 * (read_word story string_offset_offset)
+
 let decode_routine_packed_address story (Packed_routine packed) =
     match version story with
     | V1
@@ -119,6 +123,17 @@ let decode_routine_packed_address story (Packed_routine packed) =
     | V6
     | V7 -> Routine (packed * 4 + (routine_offset story))
     | V8 -> Routine (packed * 8)
+
+let decode_string_packed_address story (Packed_zstring packed) =
+    match version story with
+    | V1
+    | V2
+    | V3 -> Zstring (packed * 2)
+    | V4
+    | V5 -> Zstring (packed * 4)
+    | V6
+    | V7 -> Zstring (packed * 4 + (string_offset story))
+    | V8 -> Zstring (packed * 8)
 
 (* Bytes 6 and 7 are the initial pc for the main routine. In version 6 (only)
 this is the (packed!) address of a routine, so the *following* byte is the first
