@@ -32,6 +32,16 @@ let fetch_bits (Bit_number high) (Bit_size length) word =
 let fetch_bit (Bit_number n) word =
     (word land (1 lsl n)) lsr n = 1
 
+let clear_bit (Bit_number n) word =
+    word land (lnot (1 lsl n))
+
+let set_bit (Bit_number n) word =
+    word lor (1 lsl n)
+
+let set_bit_to n word value =
+    if value then set_bit n word
+    else clear_bit n word
+
 let is_in_range (Byte_address address) size =
     0 <= address && address < size
 
